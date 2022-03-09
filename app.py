@@ -1,7 +1,6 @@
 import pandas
 import numpy
 import pygsheets
-
 import geopandas
 import shapely
 
