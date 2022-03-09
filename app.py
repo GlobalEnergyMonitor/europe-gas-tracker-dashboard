@@ -3,7 +3,6 @@ import numpy
 import pygsheets
 
 import geopandas
-import cartopy
 import shapely
 
 import dash
