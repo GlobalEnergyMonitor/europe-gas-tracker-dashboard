@@ -15,8 +15,7 @@ import dash_bootstrap_components as dbc
 
 #credentials_directory = '/Users/baird/Dropbox/_google-api/'
 gc = pygsheets.authorize(service_account_env_var = 'GDRIVE_API_CREDENTIALS')
-spreadsheet = gc.open_by_key('1foPLE6K-uqFlaYgLPAUxzeXfDO5wOOqE7tibNHeqTek')
-#spreadsheet = gc.open_by_key('1bBaXBBB8cbP1du2_y0ovyH0tkrX9qq5aLNel0_lUrmY') # feb 11 2022 version for EGT
+spreadsheet = gc.open_by_key('1foPLE6K-uqFlaYgLPAUxzeXfDO5wOOqE7tibNHeqTek') # current version
 
 gas_pipes = spreadsheet.worksheet('title', 'Gas pipelines').get_as_df()
 oil_pipes = spreadsheet.worksheet('title', 'Oil/NGL pipelines').get_as_df()
