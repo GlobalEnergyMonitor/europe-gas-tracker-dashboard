@@ -176,8 +176,6 @@ pipes_gdf = geopandas.GeoDataFrame(pipes_df_converted_routes, geometry=pipes_df_
 # import terminals
 # ****************************************
 
-credentials_directory = '/Users/baird/Dropbox/_google-api/'
-gc = pygsheets.authorize(client_secret=credentials_directory+'client_secret.json')
 spreadsheet = gc.open_by_key('1tcS6Wd-Wp-LTDpLzFgJY_RSNDnbyubW3J_9HKIAys4A')
 
 terms_df_orig = spreadsheet.worksheet('title', 'Terminals').get_as_df()
