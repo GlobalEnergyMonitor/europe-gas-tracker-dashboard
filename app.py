@@ -258,6 +258,7 @@ def fig_capacity():
         'Country')['CapacityInBcm/y'].sum()
 
     terms_df_capacity_sum.replace(numpy.nan,0,inplace=True)
+
 # ****************************************
 # creating figures
 # ****************************************
@@ -309,7 +310,7 @@ def fig_capacity():
         title_y=.97,
         title_yanchor='top',
 
-        legend_title=None,
+        legend_title='Click to toggle on/off',
         #legend=dict(yanchor="bottom",y=0.01,xanchor="right",x=0.99,bgcolor='rgba(0,0,0,0)'),
         legend=dict(yanchor="top",y=1,xanchor="left",x=1.01,bgcolor='rgba(0,0,0,0)'),
     )
@@ -322,7 +323,7 @@ def fig_capacity():
         gridcolor=px.colors.sample_colorscale('greys', 0.25)[0]
     )
     
-    return(fig)
+    return(fig, terms_df_capacity_sum)
 
 def fig_length():
 
@@ -374,7 +375,7 @@ def fig_length():
         title_y=.97,
         title_yanchor='top',
 
-        legend_title=None,
+        legend_title='Click to toggle on/off',
         #legend=dict(yanchor="bottom",y=0.01,xanchor="right",x=0.99,bgcolor='rgba(0,0,0,0)'),
         legend=dict(yanchor="top",y=1,xanchor="left",x=1.01,bgcolor='rgba(0,0,0,0)'),
     )
@@ -387,7 +388,7 @@ def fig_length():
         gridcolor=px.colors.sample_colorscale('greys', 0.25)[0]
     )
     
-    return(fig)
+    return(fig, pipes_df_length_sum)
 
 def fig_fid():
     
@@ -450,7 +451,7 @@ def fig_fid():
         title_y=.97,
         title_yanchor='top',
 
-        legend_title=None,
+        legend_title='Click to toggle on/off',
         #legend=dict(yanchor="bottom",y=0.01,xanchor="right",x=0.99,bgcolor='rgba(0,0,0,0)'),
         legend=dict(yanchor="top",y=1,xanchor="left",x=1.01,bgcolor='rgba(0,0,0,0)'),
     )
@@ -463,7 +464,7 @@ def fig_fid():
         gridcolor=px.colors.sample_colorscale('greys', 0.25)[0]
     )
 
-    return(fig)
+    return(fig, projects_df_fid_sum)
 
 # ****************************************
 # dashboard details
@@ -482,13 +483,13 @@ server = app.server
 
 capacity_figure = dash.dcc.Graph(id='fig_capacity_id', 
                                  config={'displayModeBar':False},
-                                 figure=fig_capacity())
+                                 figure=fig_capacity()[0])
 length_figure = dash.dcc.Graph(id='fig_length_id', 
                                config={'displayModeBar':False},
-                               figure=fig_length())
+                               figure=fig_length()[0])
 fid_figure = dash.dcc.Graph(id='fig_fid_id', 
                                config={'displayModeBar':False},
-                               figure=fig_fid())
+                               figure=fig_fid()[0])
 #, config={'displayModeBar':False})
 
 
@@ -504,7 +505,9 @@ app.layout = dash.html.Div([
     ]),
     dbc.Row(),
     dbc.Row([
-        dbc.Col(fid_figure, style={'maxHeight':'400px', 'overflow':'scroll'}, align='start')])
+        dbc.Col(fid_figure, style={'maxHeight':'400px', 'overflow':'scroll'}, align='start'),
+        dbc.Col(None, style={'maxHeight':'400px', 'overflow':'scroll'}, align='start')
+    ]),
 ])
 ])
 
@@ -520,3 +523,11 @@ app.layout = dash.html.Div([
 
 if __name__ == '__main__':
     app.run_server()
+
+# terms_df_capacity_sum = fig_capacity()[1]
+# pipes_df_length_sum = fig_length()[1]
+# projects_df_fid_sum = fig_fid()[1]
+
+# terms_df_capacity_sum.to_excel('terminals_capacity_data.xlsx')
+# pipes_df_length_sum.to_excel('pipelines_length_data.xlsx')
+# projects_df_fid_sum.to_excel('projects_at_fid_and_prefid.xlsx')
