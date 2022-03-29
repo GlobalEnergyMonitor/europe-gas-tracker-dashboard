@@ -466,6 +466,99 @@ def fig_fid():
 
     return(fig, projects_df_fid_sum)
 
+def fig_year_counts():
+    
+    terms_df_region = terms_df_orig[(terms_df_orig.Country.isin(region_df_touse.Country))&
+                                    (terms_df_orig.Status.isin(['Cancelled', 'Operating']))&
+                                    (terms_df_orig.Facility.isin(['Import']))]
+    country_ratios_df_region = country_ratios_df[(country_ratios_df.Country.isin(region_df_touse.Country))&
+                                (country_ratios_df.Status.isin(['Cancelled', 'Operating']))]
+
+    projects_df_years_sum = pandas.DataFrame(0, index=numpy.arange(1850,2023), columns=['Cancelled pipelines',
+                                                                                 'Cancelled pipeline km',
+                                                                                 'Cancelled terminals',
+                                                                                 'Cancelled terminal capacity',
+                                                                                 'Operating pipelines',
+                                                                                 'Operating pipeline km',
+                                                                                 'Operating terminals',
+                                                                                 'Operating terminal capacity'])
+
+    # Pipelines
+    projects_df_years_sum['Cancelled pipelines'] += -country_ratios_df_region.loc[country_ratios_df_region.Status=='Cancelled'].groupby('CancelledYear')['LengthPerCountryFraction'].sum()
+    projects_df_years_sum['Cancelled pipeline km'] += -country_ratios_df_region.loc[country_ratios_df_region.Status=='Cancelled'].groupby('CancelledYear')['MergedKmByCountry'].sum()
+    # Terminals
+    projects_df_years_sum['Cancelled terminals'] += -terms_df_region.loc[terms_df_region.Status=='Cancelled'].groupby('CancelledYear')['TerminalID'].count()
+    projects_df_years_sum['Cancelled terminal capacity'] += -terms_df_region.loc[terms_df_region.Status=='Cancelled'].groupby('CancelledYear')['CapacityInBcm/y'].count()
+    
+    # Pipelines
+    projects_df_years_sum['Operating pipelines'] += country_ratios_df_region.loc[country_ratios_df_region.Status=='Operating'].groupby('StartYearEarliest')['LengthPerCountryFraction'].sum()
+    projects_df_years_sum['Operating pipeline km'] += country_ratios_df_region.loc[country_ratios_df_region.Status=='Operating'].groupby('StartYearEarliest')['MergedKmByCountry'].sum()
+    # Terminals
+    projects_df_years_sum['Operating terminals'] += terms_df_region.loc[terms_df_region.Status=='Operating'].groupby('StartYearEarliest')['TerminalID'].count()
+    projects_df_years_sum['Operating terminal capacity'] += terms_df_region.loc[terms_df_region.Status=='Operating'].groupby('StartYearEarliest')['CapacityInBcm/y'].count()
+
+    #projects_df_cancelled_sum.replace(numpy.nan,0,inplace=True)
+
+    # reorder for descending values
+    #country_order = projects_df_fid_sum.sum(axis=1).sort_values(ascending=True).index
+    #projects_df_fid_sum = projects_df_fid_sum.reindex(country_order)
+
+    # ****************************************
+
+    colorscale_touse = 'reds'
+    bar_pipes_cancelled = px.colors.sample_colorscale(colorscale_touse, 0.7)
+    bar_terms_cancelled = px.colors.sample_colorscale(colorscale_touse, 0.4)
+    colorscale_touse = 'greys'
+    bar_pipes_operating = px.colors.sample_colorscale(colorscale_touse, 0.7)
+    bar_terms_operating = px.colors.sample_colorscale(colorscale_touse, 0.4)
+
+    nbars = projects_df_fid_sum.index.size
+
+    fig = px.bar(projects_df_years_sum[['Cancelled pipelines',
+                                        'Cancelled terminals',
+                                        'Operating pipelines',
+                                        'Operating terminals']], 
+                 color_discrete_sequence=bar_pipes_cancelled+bar_terms_cancelled+bar_pipes_operating+bar_terms_operating, 
+                 height=800,
+                 title='Number of projects cancelled or operating')
+
+    note = '<i>Note when a pipeline passes through multiple countries, it is divided into fractions that sum to 1.</i>'
+    fig.add_annotation(x=0, y=-0.1,
+                       xref='x domain',
+                       yref='y domain',
+                       text=note,
+                       showarrow=False,
+                       font=dict(size=12))
+    
+    fig.update_layout(
+        font_family='Helvetica',
+        font_color=px.colors.sample_colorscale('greys', 0.5)[0],
+        bargap=0.25,
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+
+        yaxis_title='number of projects',
+        xaxis_title='year',
+        xaxis={'side':'top'},
+        title_y=.97,
+        title_yanchor='top',
+        xaxis_range=[2011.5,2021.5],
+
+        legend_title=None,
+        #legend=dict(yanchor="bottom",y=0.01,xanchor="right",x=0.99,bgcolor='rgba(0,0,0,0)'),
+        legend=dict(yanchor="top",y=1,xanchor="left",x=1.01,bgcolor='rgba(0,0,0,0)'),
+    )
+
+    fig.update_yaxes(
+        dtick=1
+    )
+
+    fig.update_xaxes(
+        gridcolor=px.colors.sample_colorscale('greys', 0.25)[0]
+    )
+
+    return(fig, projects_df_years_sum)
+
 # ****************************************
 # dashboard details
 # ****************************************
@@ -490,8 +583,9 @@ length_figure = dash.dcc.Graph(id='fig_length_id',
 fid_figure = dash.dcc.Graph(id='fig_fid_id', 
                                config={'displayModeBar':False},
                                figure=fig_fid()[0])
-#, config={'displayModeBar':False})
-
+year_counts_figure = dash.dcc.Graph(id='fig_year_counts_id',
+                              config={'displayModeBar':False},
+                              figure=fig_year_counts()[0])
 
 # ******************************
 # define layout
@@ -500,13 +594,13 @@ fid_figure = dash.dcc.Graph(id='fig_fid_id',
 app.layout = dash.html.Div([
     dbc.Container(fluid=True, children=[
     dbc.Row([
-        dbc.Col(capacity_figure, style={'maxHeight':'400px', 'overflow':'scroll'}, align='start'),
-        dbc.Col(length_figure, style={'maxHeight':'400px', 'overflow':'scroll'}, align='start')
+        dbc.Col(capacity_figure, style={'maxHeight':'800px', 'overflow':'scroll'}, align='start'),
+        dbc.Col(length_figure, style={'maxHeight':'800px', 'overflow':'scroll'}, align='start')
     ]),
     dbc.Row(),
     dbc.Row([
-        dbc.Col(fid_figure, style={'maxHeight':'400px', 'overflow':'scroll'}, align='start'),
-        dbc.Col(None, style={'maxHeight':'400px', 'overflow':'scroll'}, align='start')
+        dbc.Col(fid_figure, style={'maxHeight':'800px', 'overflow':'scroll'}, align='start'),
+        dbc.Col(year_counts_figure, style={'maxHeight':'800px', 'overflow':'scroll'}, align='start')
     ]),
 ])
 ])
@@ -527,7 +621,9 @@ if __name__ == '__main__':
 # terms_df_capacity_sum = fig_capacity()[1]
 # pipes_df_length_sum = fig_length()[1]
 # projects_df_fid_sum = fig_fid()[1]
+#projects_df_years_sum = fig_year_counts()[1]
 
 # terms_df_capacity_sum.to_excel('terminals_capacity_data.xlsx')
 # pipes_df_length_sum.to_excel('pipelines_length_data.xlsx')
 # projects_df_fid_sum.to_excel('projects_at_fid_and_prefid.xlsx')
+#projects_df_years_sum.to_excel('project_counts_by_status_and_year.xlsx')
