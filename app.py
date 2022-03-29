@@ -416,11 +416,11 @@ def fig_fid():
     # ****************************************
 
     colorscale_touse = 'blues'
-
     bar_pipes_dark = px.colors.sample_colorscale(colorscale_touse, 0.9)
-    bar_pipes_light = px.colors.sample_colorscale(colorscale_touse, 0.7)
-    bar_terms_dark = px.colors.sample_colorscale(colorscale_touse, 0.5)
-    bar_terms_light = px.colors.sample_colorscale(colorscale_touse, 0.3)
+    bar_pipes_light = px.colors.sample_colorscale(colorscale_touse, 0.6)
+    colorscale_touse = 'purples'
+    bar_terms_dark = px.colors.sample_colorscale(colorscale_touse, 0.9)
+    bar_terms_light = px.colors.sample_colorscale(colorscale_touse, 0.6)
 
     nbars = projects_df_fid_sum.index.size
 
