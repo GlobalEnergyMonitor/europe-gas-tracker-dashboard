@@ -484,11 +484,11 @@ def fig_year_counts():
                                                                                  'Operating terminal capacity'])
 
     # Pipelines
-    projects_df_years_sum['Cancelled pipelines'] += -country_ratios_df_region.loc[country_ratios_df_region.Status=='Cancelled'].groupby('CancelledYear')['LengthPerCountryFraction'].sum()
-    projects_df_years_sum['Cancelled pipeline km'] += -country_ratios_df_region.loc[country_ratios_df_region.Status=='Cancelled'].groupby('CancelledYear')['MergedKmByCountry'].sum()
+    projects_df_years_sum['Cancelled pipelines'] += country_ratios_df_region.loc[country_ratios_df_region.Status=='Cancelled'].groupby('CancelledYear')['LengthPerCountryFraction'].sum()
+    projects_df_years_sum['Cancelled pipeline km'] += country_ratios_df_region.loc[country_ratios_df_region.Status=='Cancelled'].groupby('CancelledYear')['MergedKmByCountry'].sum()
     # Terminals
-    projects_df_years_sum['Cancelled terminals'] += -terms_df_region.loc[terms_df_region.Status=='Cancelled'].groupby('CancelledYear')['TerminalID'].count()
-    projects_df_years_sum['Cancelled terminal capacity'] += -terms_df_region.loc[terms_df_region.Status=='Cancelled'].groupby('CancelledYear')['CapacityInBcm/y'].count()
+    projects_df_years_sum['Cancelled terminals'] += terms_df_region.loc[terms_df_region.Status=='Cancelled'].groupby('CancelledYear')['TerminalID'].count()
+    projects_df_years_sum['Cancelled terminal capacity'] += terms_df_region.loc[terms_df_region.Status=='Cancelled'].groupby('CancelledYear')['CapacityInBcm/y'].count()
     
     # Pipelines
     projects_df_years_sum['Operating pipelines'] += country_ratios_df_region.loc[country_ratios_df_region.Status=='Operating'].groupby('StartYearEarliest')['LengthPerCountryFraction'].sum()
