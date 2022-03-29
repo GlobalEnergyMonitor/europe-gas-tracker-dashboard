@@ -13,13 +13,11 @@ import dash_bootstrap_components as dbc
 # import pipelines data
 # ****************************************
 
-#credentials_directory = '/Users/baird/Dropbox/_google-api/'
 gc = pygsheets.authorize(service_account_env_var = 'GDRIVE_API_CREDENTIALS')
-spreadsheet = gc.open_by_key('1foPLE6K-uqFlaYgLPAUxzeXfDO5wOOqE7tibNHeqTek') # current version
+spreadsheet = gc.open_by_key('1MX_6I2QW07lFFWMO-k3mjthBlQGFlv5aTMBmvbliYUY') # current version
 
 gas_pipes = spreadsheet.worksheet('title', 'Gas pipelines').get_as_df()
 oil_pipes = spreadsheet.worksheet('title', 'Oil/NGL pipelines').get_as_df()
-#owners = spreadsheet[2].get_as_df()
 
 gas_pipes = gas_pipes.drop('WKTFormat', axis=1) # delete WKTFormat column
 oil_pipes = oil_pipes.drop('WKTFormat', axis=1)
@@ -176,7 +174,7 @@ pipes_gdf = geopandas.GeoDataFrame(pipes_df_converted_routes, geometry=pipes_df_
 # import terminals
 # ****************************************
 
-spreadsheet = gc.open_by_key('1tcS6Wd-Wp-LTDpLzFgJY_RSNDnbyubW3J_9HKIAys4A')
+spreadsheet = gc.open_by_key('1nQChDxZXBaHX53alSXfD0IHpHdxpUSjMALEaR_JNFXE')
 
 terms_df_orig = spreadsheet.worksheet('title', 'Terminals').get_as_df()
 
@@ -186,6 +184,8 @@ terms_df_orig.replace('--', numpy.nan, inplace=True)
 terms_df_orig = terms_df_orig.loc[terms_df_orig['Type1']!='Oil']
 # remove anything without a wiki page
 terms_df_orig = terms_df_orig.loc[terms_df_orig['Wiki']!='']
+# remove anything without latlon coords
+
 
 region_df_orig = spreadsheet.worksheet('title', 'Region dictionary').get_as_df()
 
@@ -239,6 +239,25 @@ terms_df_converted_locations.sort_values('ComboID', inplace=True)
 terms_gdf = geopandas.GeoDataFrame(terms_df_converted_locations, geometry=terms_df_converted_locations['geometry'])
 terms_gdf_region = terms_gdf.loc[terms_gdf['Country'].isin(region_df_touse.Country)]
 
+# ****************************************
+# creating figures
+# ****************************************
+
+def fig_capacity():
+
+    terms_df_capacity_sum = pandas.DataFrame(0, index=country_list, columns=['Pre-construction','Construction'])
+    terms_df_region = terms_df_orig[(terms_df_orig.Country.isin(region_df_touse.Country))&
+                                    (terms_df_orig.Status.isin(['Construction','Proposed']))&
+                                    (terms_df_orig.Facility.isin(['Import']))]
+
+    # proposed
+    terms_df_capacity_sum['Pre-construction'] += terms_df_region.loc[terms_df_region.Status=='Proposed'].groupby(
+        'Country')['CapacityInBcm/y'].sum()
+    # construction
+    terms_df_capacity_sum['Construction'] += terms_df_region.loc[terms_df_region.Status=='Construction'].groupby(
+        'Country')['CapacityInBcm/y'].sum()
+
+    terms_df_capacity_sum.replace(numpy.nan,0,inplace=True)
 # ****************************************
 # creating figures
 # ****************************************
