@@ -512,8 +512,6 @@ def fig_year_counts():
     bar_pipes_operating = px.colors.sample_colorscale(colorscale_touse, 0.7)
     bar_terms_operating = px.colors.sample_colorscale(colorscale_touse, 0.4)
 
-    nbars = projects_df_fid_sum.index.size
-
     fig = px.bar(projects_df_years_sum[['Cancelled pipelines',
                                         'Cancelled terminals',
                                         'Operating pipelines',
@@ -544,7 +542,7 @@ def fig_year_counts():
         title_yanchor='top',
         xaxis_range=[2011.5,2021.5],
 
-        legend_title=None,
+        legend_title='Click to toggle on/off',
         #legend=dict(yanchor="bottom",y=0.01,xanchor="right",x=0.99,bgcolor='rgba(0,0,0,0)'),
         legend=dict(yanchor="top",y=1,xanchor="left",x=1.01,bgcolor='rgba(0,0,0,0)'),
     )
