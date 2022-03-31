@@ -748,16 +748,16 @@ map_kilometers_figure = dash.dcc.Graph(id='fig_kilometers_map_id',
 app.layout = dash.html.Div([
     dbc.Container(fluid=True, children=[
     dbc.Row([
-        dbc.Col(capacity_figure, style={'maxHeight':'800px', 'overflow':'scroll'}, align='start'),
-        dbc.Col(length_figure, style={'maxHeight':'800px', 'overflow':'scroll'}, align='start')
+        dbc.Col(capacity_figure, style={'maxHeight':'300px', 'overflow':'scroll'}, align='start'),
+        dbc.Col(length_figure, style={'maxHeight':'300px', 'overflow':'scroll'}, align='start')
     ]),
     dbc.Row([
         dbc.Col(map_capacity_figure, style={'maxHeight':'800px', 'overflow':'scroll'}, align='start'),
         dbc.Col(map_kilometers_figure, style={'maxHeight':'800px', 'overflow':'scroll'}, align='start')
     ]),
     dbc.Row([
-        dbc.Col(fid_figure, style={'maxHeight':'800px', 'overflow':'scroll'}, align='start'),
-        dbc.Col(year_counts_figure, style={'maxHeight':'800px', 'overflow':'scroll'}, align='start')
+        dbc.Col(fid_figure, style={'maxHeight':'300px', 'overflow':'scroll'}, align='start'),
+        dbc.Col(year_counts_figure, style={'maxHeight':'300px', 'overflow':'scroll'}, align='start')
     ]),
 ])
 ])
