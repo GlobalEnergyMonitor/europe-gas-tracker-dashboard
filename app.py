@@ -574,7 +574,7 @@ def fig_capacity_map():
     terms_df_capacity_sum.replace(numpy.nan,0,inplace=True)
 
     # create cloropleth info
-    terms_df_capacity_sum['Capacity'] = terms_df_capacity_sum.sum(axis=1)
+    terms_df_capacity_sum['Capacity (bcm/y)'] = terms_df_capacity_sum.sum(axis=1)
 
     # add ISO Code for interaction with nat earth data
     terms_df_capacity_sum['ISOCode'] = ''
@@ -587,8 +587,8 @@ def fig_capacity_map():
 
     fig = px.choropleth(terms_df_capacity_sum, 
                         locations=terms_df_capacity_sum['ISOCode'],
-                        color='Capacity', color_continuous_scale=px.colors.sequential.Oranges,
-                        title='LNG import capacity in development (bcm/y)')
+                        color='Capacity (bcm/y)', color_continuous_scale=px.colors.sequential.Oranges,
+                        title='Capacity of planned LNG terminals')
 
     fig.update_geos(
         resolution=50,
@@ -616,6 +616,7 @@ def fig_capacity_map():
         xaxis={'side':'top'},
         title_y=.97,
         title_yanchor='top',
+        dragmode=False,
 
         coloraxis_colorbar_x=1.01)
     
@@ -654,7 +655,7 @@ def fig_kilometers_map():
     # ****************************************
 
     # create cloropleth info
-    pipes_df_length_sum['Kilometers'] = pipes_df_length_sum.sum(axis=1)
+    pipes_df_length_sum['Pipelines (km)'] = pipes_df_length_sum.sum(axis=1)
 
     # add ISO Code for interaction with nat earth data
     pipes_df_length_sum['ISOCode'] = ''
@@ -667,8 +668,8 @@ def fig_kilometers_map():
 
     fig = px.choropleth(pipes_df_length_sum, 
                         locations=pipes_df_length_sum['ISOCode'],
-                        color='Kilometers', color_continuous_scale=px.colors.sequential.Greens,
-                        title='Pipeline kilometers in development (km)')
+                        color='Pipelines (km)', color_continuous_scale=px.colors.sequential.Greens,
+                        title='Kilometers of planned gas pipelines')
 
     fig.update_geos(
         resolution=50,
@@ -696,6 +697,7 @@ def fig_kilometers_map():
         xaxis={'side':'top'},
         title_y=.97,
         title_yanchor='top',
+        dragmode=False,
 
         coloraxis_colorbar_x=1.01)
     
