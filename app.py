@@ -557,6 +557,154 @@ def fig_year_counts():
 
     return(fig, projects_df_years_sum)
 
+def fig_capacity_map():
+
+    terms_df_capacity_sum = pandas.DataFrame(0, index=country_list, columns=['Pre-construction','Construction'])
+    terms_df_region = terms_df_orig[(terms_df_orig.Country.isin(region_df_touse.Country))&
+                                    (terms_df_orig.Status.isin(['Construction','Proposed']))&
+                                    (terms_df_orig.Facility.isin(['Import']))]
+
+    # proposed
+    terms_df_capacity_sum['Pre-construction'] += terms_df_region.loc[terms_df_region.Status=='Proposed'].groupby(
+        'Country')['CapacityInBcm/y'].sum()
+    # construction
+    terms_df_capacity_sum['Construction'] += terms_df_region.loc[terms_df_region.Status=='Construction'].groupby(
+        'Country')['CapacityInBcm/y'].sum()
+
+    terms_df_capacity_sum.replace(numpy.nan,0,inplace=True)
+
+    # create cloropleth info
+    terms_df_capacity_sum['Capacity'] = terms_df_capacity_sum.sum(axis=1)
+
+    # add ISO Code for interaction with nat earth data
+    terms_df_capacity_sum['ISOCode'] = ''
+    for idx,row in terms_df_capacity_sum.iterrows():
+        terms_df_capacity_sum.loc[idx,'ISOCode'] = region_df_orig.loc[region_df_orig['Country']==row.name,'ISOCode'].values
+
+    # reorder for descending values
+    country_order = terms_df_capacity_sum.sum(axis=1).sort_values(ascending=True).index
+    terms_df_capacity_sum = terms_df_capacity_sum.reindex(country_order)
+
+    fig = px.choropleth(terms_df_capacity_sum, 
+                        locations=terms_df_capacity_sum['ISOCode'],
+                        color='Capacity', color_continuous_scale=px.colors.sequential.Oranges,
+                        title='LNG import capacity in development (bcm/y)')
+
+    fig.update_geos(
+        resolution=50,
+        showcoastlines=False,
+        #showcountries=True,
+        #coastlinecolor=px.colors.sample_colorscale('greys', 0.9)[0],
+        landcolor=px.colors.sample_colorscale('greys', 1e-5)[0],
+
+        showocean=True,
+        oceancolor=px.colors.sample_colorscale('blues', 0.05)[0],
+
+        projection_type='azimuthal equal area',
+        center=dict(lat=50, lon=7),
+        projection_rotation=dict(lon=30),
+        projection_scale=5.5)
+    
+    fig.update_layout(
+        font_family='Helvetica',
+        font_color=px.colors.sample_colorscale('greys', 0.5)[0],
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+
+        yaxis_title='country',
+        xaxis_title='bcm/y',
+        xaxis={'side':'top'},
+        title_y=.97,
+        title_yanchor='top',
+
+        coloraxis_colorbar_x=1.01)
+    
+    fig.update_traces(
+        colorbar=dict(thickness=100),
+        selector=dict(type='choropleth'))
+        #colorbar_thickness=10,
+        #colorbar_thicknessmode='fraction',
+        #selector=dict(type='choropleth'))
+    
+    return(fig)
+
+def fig_kilometers_map():
+
+
+    pipes_df_length_sum = pandas.DataFrame(0, index=country_list, columns=['Pre-construction','Construction'])
+    country_ratios_df_region = country_ratios_df[(country_ratios_df.Country.isin(region_df_touse.Country))&
+                                                 (country_ratios_df.Status.isin(['Construction','Proposed']))]
+
+    country_ratios_df_region = country_ratios_df[(country_ratios_df.Country.isin(region_df_touse.Country))&
+                                (country_ratios_df.Status.isin(['Construction','Proposed']))]
+
+    # proposed
+    pipes_df_length_sum['Pre-construction'] += country_ratios_df_region.loc[country_ratios_df_region.Status=='Proposed'].groupby(
+        'Country')['MergedKmByCountry'].sum()
+    # construction
+    pipes_df_length_sum['Construction'] += country_ratios_df_region.loc[country_ratios_df_region.Status=='Construction'].groupby(
+        'Country')['MergedKmByCountry'].sum()
+
+    pipes_df_length_sum.replace(numpy.nan,0,inplace=True)
+
+    # reorder for descending values
+    country_order = pipes_df_length_sum.sum(axis=1).sort_values(ascending=True).index
+    pipes_df_length_sum = pipes_df_length_sum.reindex(country_order)
+    
+    # ****************************************
+
+    # create cloropleth info
+    pipes_df_length_sum['Kilometers'] = pipes_df_length_sum.sum(axis=1)
+
+    # add ISO Code for interaction with nat earth data
+    pipes_df_length_sum['ISOCode'] = ''
+    for idx,row in  pipes_df_length_sum.iterrows():
+         pipes_df_length_sum.loc[idx,'ISOCode'] = region_df_orig.loc[region_df_orig['Country']==row.name,'ISOCode'].values
+
+    # reorder for descending values
+    country_order =  pipes_df_length_sum.sum(axis=1).sort_values(ascending=True).index
+    pipes_df_length_sum = pipes_df_length_sum.reindex(country_order)
+
+    fig = px.choropleth(pipes_df_length_sum, 
+                        locations=pipes_df_length_sum['ISOCode'],
+                        color='Kilometers', color_continuous_scale=px.colors.sequential.Greens,
+                        title='Pipeline kilometers in development (km)')
+
+    fig.update_geos(
+        resolution=50,
+        showcoastlines=False,
+        #showcountries=True,
+        #coastlinecolor=px.colors.sample_colorscale('greys', 0.9)[0],
+        landcolor=px.colors.sample_colorscale('greys', 1e-5)[0],
+
+        showocean=True,
+        oceancolor=px.colors.sample_colorscale('blues', 0.05)[0],
+
+        projection_type='azimuthal equal area',
+        center=dict(lat=50, lon=7),
+        projection_rotation=dict(lon=30),
+        projection_scale=5.5)
+    
+    fig.update_layout(
+        font_family='Helvetica',
+        font_color=px.colors.sample_colorscale('greys', 0.5)[0],
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+
+        yaxis_title='country',
+        xaxis_title='bcm/y',
+        xaxis={'side':'top'},
+        title_y=.97,
+        title_yanchor='top',
+
+        coloraxis_colorbar_x=1.01)
+    
+    fig.update_traces(
+        colorbar=dict(thickness=100),
+        selector=dict(type='choropleth'))
+    
+    return(fig)
+
 # ****************************************
 # dashboard details
 # ****************************************
@@ -584,6 +732,12 @@ fid_figure = dash.dcc.Graph(id='fig_fid_id',
 year_counts_figure = dash.dcc.Graph(id='fig_year_counts_id',
                               config={'displayModeBar':False},
                               figure=fig_year_counts()[0])
+map_capacity_figure = dash.dcc.Graph(id='fig_capacity_map_id',
+                                     config={'displayModeBar':False},
+                                     figure=fig_capacity_map())
+map_kilometers_figure = dash.dcc.Graph(id='fig_kilometers_map_id',
+                                     config={'displayModeBar':False},
+                                     figure=fig_kilometers_map())
 
 # ******************************
 # define layout
@@ -595,7 +749,10 @@ app.layout = dash.html.Div([
         dbc.Col(capacity_figure, style={'maxHeight':'800px', 'overflow':'scroll'}, align='start'),
         dbc.Col(length_figure, style={'maxHeight':'800px', 'overflow':'scroll'}, align='start')
     ]),
-    dbc.Row(),
+    dbc.Row([
+        dbc.Col(map_capacity_figure, style={'maxHeight':'800px', 'overflow':'scroll'}, align='start'),
+        dbc.Col(map_kilometers_figure, style={'maxHeight':'800px', 'overflow':'scroll'}, align='start')
+    ]),
     dbc.Row([
         dbc.Col(fid_figure, style={'maxHeight':'800px', 'overflow':'scroll'}, align='start'),
         dbc.Col(year_counts_figure, style={'maxHeight':'800px', 'overflow':'scroll'}, align='start')
