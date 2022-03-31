@@ -537,7 +537,7 @@ def fig_year_counts():
 
         yaxis_title='number of projects',
         xaxis_title='year',
-        xaxis={'side':'top'},
+        xaxis={'mirror':'allticks','side':'top'},
         title_y=.97,
         title_yanchor='top',
         xaxis_range=[2011.5,2021.5],
@@ -587,8 +587,17 @@ def fig_capacity_map():
 
     fig = px.choropleth(terms_df_capacity_sum, 
                         locations=terms_df_capacity_sum['ISOCode'],
-                        color='Capacity (bcm/y)', color_continuous_scale=px.colors.sequential.Oranges,
-                        title='Capacity of planned LNG terminals')
+                        color='Capacity (bcm/y)', color_continuous_scale=px.colors.sequential.Oranges)#,
+                        #title='Capacity of planned LNG terminals')
+    
+    note = 'Capacity totals mapped'
+    fig.add_annotation(x=0.5, y=1.1,
+                       xref='x domain',
+                       yref='y domain',
+                       text=note,
+                       showarrow=False,
+                       align='center',
+                       font=dict(size=16))
 
     fig.update_geos(
         resolution=50,
@@ -613,8 +622,7 @@ def fig_capacity_map():
 
         yaxis_title='country',
         xaxis_title='bcm/y',
-        xaxis={'side':'top'},
-        title_y=.97,
+        #title_y=.97,
         title_yanchor='top',
         dragmode=False,
 
@@ -668,9 +676,18 @@ def fig_kilometers_map():
 
     fig = px.choropleth(pipes_df_length_sum, 
                         locations=pipes_df_length_sum['ISOCode'],
-                        color='Pipelines (km)', color_continuous_scale=px.colors.sequential.Greens,
-                        title='Kilometers of planned gas pipelines')
+                        color='Pipelines (km)', color_continuous_scale=px.colors.sequential.Greens)#,
+                        #title='Kilometers of planned gas pipelines')
 
+    note = 'Kilometer totals mapped'
+    fig.add_annotation(x=0.5, y=1.1,
+                       xref='x domain',
+                       yref='y domain',
+                       text=note,
+                       showarrow=False,
+                       align='center',
+                       font=dict(size=16))
+    
     fig.update_geos(
         resolution=50,
         showcoastlines=False,
@@ -694,8 +711,7 @@ def fig_kilometers_map():
 
         yaxis_title='country',
         xaxis_title='bcm/y',
-        xaxis={'side':'top'},
-        title_y=.97,
+        #title_y=.97,
         title_yanchor='top',
         dragmode=False,
 
@@ -756,8 +772,8 @@ app.layout = dash.html.Div([
         dbc.Col(map_kilometers_figure, style={'maxHeight':'800px', 'overflow':'scroll'}, align='start')
     ]),
     dbc.Row([
-        dbc.Col(fid_figure, style={'maxHeight':'300px', 'overflow':'scroll'}, align='start'),
-        dbc.Col(year_counts_figure, style={'maxHeight':'300px', 'overflow':'scroll'}, align='start')
+        dbc.Col(fid_figure, style={'maxHeight':'800px', 'overflow':'scroll'}, align='start'),
+        dbc.Col(year_counts_figure, style={'maxHeight':'800px', 'overflow':'scroll'}, align='start')
     ]),
 ])
 ])
