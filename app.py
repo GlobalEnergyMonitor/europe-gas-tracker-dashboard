@@ -428,7 +428,7 @@ def fig_fid():
                                       'Terminals FID', 'Terminals pre-FID']], 
                  color_discrete_sequence=bar_pipes_dark+bar_pipes_light+bar_terms_dark+bar_terms_light, 
                  orientation='h', height=800,
-                 title='Number of projects at FID or pre-FID')
+                 title='Number of projects to have reached a final investment decision (FID) or are pre-FID')
 
     note = '<i>Note when a pipeline passes through multiple countries, it is divided into fractions that sum to 1.</i>'
     fig.add_annotation(x=0, y=-0.1,
