@@ -13,15 +13,17 @@ import dash_bootstrap_components as dbc
 # import pipelines data
 # ****************************************
 
-gc = pygsheets.authorize(service_account_env_var = 'GDRIVE_API_CREDENTIALS')
-spreadsheet = gc.open_by_key('1MX_6I2QW07lFFWMO-k3mjthBlQGFlv5aTMBmvbliYUY') # current version
+gc = pygsheets.authorize(service_account_env_var='GDRIVE_API_CREDENTIALS')
 
-gas_pipes = spreadsheet.worksheet('title', 'Gas pipelines').get_as_df()
-oil_pipes = spreadsheet.worksheet('title', 'Oil/NGL pipelines').get_as_df()
+#spreadsheet = gc.open_by_key('1MX_6I2QW07lFFWMO-k3mjthBlQGFlv5aTMBmvbliYUY') # current version
+spreadsheet = gc.open_by_key('1PKsCoVnfnCEalDBOF0Fmny0-pg1qy86DoReNHI-97WM') # Mar 2023 release
+
+gas_pipes = spreadsheet.worksheet('title', 'Gas pipelines').get_as_df(start='A2')
+oil_pipes = spreadsheet.worksheet('title', 'Oil/NGL pipelines').get_as_df(start='A2')
 
 gas_pipes = gas_pipes.drop('WKTFormat', axis=1) # delete WKTFormat column
 oil_pipes = oil_pipes.drop('WKTFormat', axis=1)
-pipes_df_orig = pandas.concat([oil_pipes, gas_pipes], ignore_index=True)
+pipes_df_orig = gas_pipes.copy()#pandas.concat([oil_pipes, gas_pipes], ignore_index=True)
 # remove empty cells for pipes, owners
 pipes_df_orig = pipes_df_orig[pipes_df_orig['PipelineName']!='']
 
@@ -38,6 +40,7 @@ country_ratios_df.loc[country_ratios_df.PipelineName=='Nord Stream 2', 'Status']
 pipes_df_orig.loc[pipes_df_orig.PipelineName=='Nord Stream 2', 'Status'] = 'Construction'
 
 country_ratios_df.replace('--', numpy.nan, inplace=True)
+country_ratios_df[['CancelledYear','ShelvedYear']].replace('',numpy.nan,inplace=True)
 pipes_df_orig.replace('--', numpy.nan, inplace=True)
 
 # https://www.gem.wiki/Poland-Ukraine_Interconnector_Gas_Pipeline
@@ -174,20 +177,20 @@ pipes_gdf = geopandas.GeoDataFrame(pipes_df_converted_routes, geometry=pipes_df_
 # import terminals
 # ****************************************
 
-spreadsheet = gc.open_by_key('1nQChDxZXBaHX53alSXfD0IHpHdxpUSjMALEaR_JNFXE')
+spreadsheet = gc.open_by_key('1d0kLE0WmAn9b4XdugffiEaAHGWy6EhyF7zY1DM12zCc') # Mar 2023 release
 
-terms_df_orig = spreadsheet.worksheet('title', 'Terminals').get_as_df()
+terms_df_orig = spreadsheet.worksheet('title', 'Terminals').get_as_df(start='A2')
 
 # replace all -- with nans
 terms_df_orig.replace('--', numpy.nan, inplace=True)
 # remove oil export terminals
-terms_df_orig = terms_df_orig.loc[terms_df_orig['Type1']!='Oil']
+terms_df_orig = terms_df_orig.loc[terms_df_orig['Fuel']=='LNG']
 # remove anything without a wiki page
 terms_df_orig = terms_df_orig.loc[terms_df_orig['Wiki']!='']
 # remove anything without latlon coords
 
 
-region_df_orig = spreadsheet.worksheet('title', 'Region dictionary').get_as_df()
+region_df_orig = spreadsheet.worksheet('title', 'Region dictionary').get_as_df(start='A2')
 
 region_df_eu = region_df_orig.copy()[region_df_orig['EuropeanUnion']=='Yes']
 region_df_egt = region_df_orig.copy()[region_df_orig['EuroGasTracker']=='Yes']
@@ -248,7 +251,7 @@ def fig_capacity():
     terms_df_capacity_sum = pandas.DataFrame(0, index=country_list, columns=['Pre-construction','Construction'])
     terms_df_region = terms_df_orig[(terms_df_orig.Country.isin(region_df_touse.Country))&
                                     (terms_df_orig.Status.isin(['Construction','Proposed']))&
-                                    (terms_df_orig.Facility.isin(['Import']))]
+                                    (terms_df_orig['Import/Export'].isin(['Import']))]
 
     # proposed
     terms_df_capacity_sum['Pre-construction'] += terms_df_region.loc[terms_df_region.Status=='Proposed'].groupby(
@@ -268,7 +271,7 @@ def fig_capacity():
     terms_df_capacity_sum = pandas.DataFrame(0, index=country_list, columns=['Pre-construction','Construction'])
     terms_df_region = terms_df_orig[(terms_df_orig.Country.isin(region_df_touse.Country))&
                                     (terms_df_orig.Status.isin(['Construction','Proposed']))&
-                                    (terms_df_orig.Facility.isin(['Import']))]
+                                    (terms_df_orig['Import/Export'].isin(['Import']))]
 
     # proposed
     terms_df_capacity_sum['Pre-construction'] += terms_df_region.loc[terms_df_region.Status=='Proposed'].groupby(
@@ -309,6 +312,7 @@ def fig_capacity():
         xaxis={'side':'top'},
         title_y=.97,
         title_yanchor='top',
+        title={'x':0.5, 'xanchor': 'center'},
 
         legend_title='Click to toggle on/off',
         #legend=dict(yanchor="bottom",y=0.01,xanchor="right",x=0.99,bgcolor='rgba(0,0,0,0)'),
@@ -374,6 +378,7 @@ def fig_length():
         xaxis={'side':'top'},
         title_y=.97,
         title_yanchor='top',
+        title={'x':0.5, 'xanchor': 'center'},
 
         legend_title='Click to toggle on/off',
         #legend=dict(yanchor="bottom",y=0.01,xanchor="right",x=0.99,bgcolor='rgba(0,0,0,0)'),
@@ -394,7 +399,7 @@ def fig_fid():
     
     terms_df_region = terms_df_orig[(terms_df_orig.Country.isin(region_df_touse.Country))&
                                     (terms_df_orig.Status.isin(['Construction','Proposed']))&
-                                    (terms_df_orig.Facility.isin(['Import']))]
+                                    (terms_df_orig['Import/Export'].isin(['Import']))]
     country_ratios_df_region = country_ratios_df[(country_ratios_df.Country.isin(region_df_touse.Country))&
                                 (country_ratios_df.Status.isin(['Construction','Proposed']))]
 
@@ -428,7 +433,7 @@ def fig_fid():
                                       'Terminals FID', 'Terminals pre-FID']], 
                  color_discrete_sequence=bar_pipes_dark+bar_pipes_light+bar_terms_dark+bar_terms_light, 
                  orientation='h', height=800,
-                 title='Number of projects to have reached a final investment decision (FID) or are pre-FID')
+                 title='Number of projects at FID or pre-FID')
 
     note = '<i>Note when a pipeline passes through multiple countries, it is divided into fractions that sum to 1.</i>'
     fig.add_annotation(x=0, y=-0.1,
@@ -450,6 +455,7 @@ def fig_fid():
         xaxis={'side':'top'},
         title_y=.97,
         title_yanchor='top',
+        title={'x':0.5, 'xanchor': 'center'},
 
         legend_title='Click to toggle on/off',
         #legend=dict(yanchor="bottom",y=0.01,xanchor="right",x=0.99,bgcolor='rgba(0,0,0,0)'),
@@ -469,8 +475,7 @@ def fig_fid():
 def fig_year_counts():
     
     terms_df_region = terms_df_orig[(terms_df_orig.Country.isin(region_df_touse.Country))&
-                                    (terms_df_orig.Status.isin(['Cancelled', 'Operating']))&
-                                    (terms_df_orig.Facility.isin(['Import']))]
+                                    (terms_df_orig['Import/Export'].isin(['Import']))]
     country_ratios_df_region = country_ratios_df[(country_ratios_df.Country.isin(region_df_touse.Country))&
                                 (country_ratios_df.Status.isin(['Cancelled', 'Operating']))]
 
@@ -481,7 +486,20 @@ def fig_year_counts():
                                                                                  'Operating pipelines',
                                                                                  'Operating pipeline km',
                                                                                  'Operating terminals',
-                                                                                 'Operating terminal capacity'])
+                                                                                 'Operating terminal capacity',
+                                                                                 'Shelved pipelines',
+                                                                                 'Shelved pipeline km',
+                                                                                 'Shelved terminals',
+                                                                                 'Shelved terminal capacity',
+                                                                                 'Proposed pipelines',
+                                                                                 'Proposed pipeline km',
+                                                                                 'Proposed terminals',
+                                                                                 'Proposed terminal capacity',
+                                                                                 'Construction pipelines',
+                                                                                 'Construction pipeline km',
+                                                                                 'Construction terminals',
+                                                                                 'Construction terminal capacity',
+                                                                                       ])
 
     # Pipelines
     projects_df_years_sum['Cancelled pipelines'] += country_ratios_df_region.loc[country_ratios_df_region.Status=='Cancelled'].groupby('CancelledYear')['LengthPerCountryFraction'].sum()
@@ -489,7 +507,7 @@ def fig_year_counts():
     # Terminals
     projects_df_years_sum['Cancelled terminals'] += terms_df_region.loc[terms_df_region.Status=='Cancelled'].groupby('CancelledYear')['TerminalID'].count()
     projects_df_years_sum['Cancelled terminal capacity'] += terms_df_region.loc[terms_df_region.Status=='Cancelled'].groupby('CancelledYear')['CapacityInBcm/y'].count()
-    
+
     # Pipelines
     projects_df_years_sum['Operating pipelines'] += country_ratios_df_region.loc[country_ratios_df_region.Status=='Operating'].groupby('StartYearEarliest')['LengthPerCountryFraction'].sum()
     projects_df_years_sum['Operating pipeline km'] += country_ratios_df_region.loc[country_ratios_df_region.Status=='Operating'].groupby('StartYearEarliest')['MergedKmByCountry'].sum()
@@ -497,28 +515,60 @@ def fig_year_counts():
     projects_df_years_sum['Operating terminals'] += terms_df_region.loc[terms_df_region.Status=='Operating'].groupby('StartYearEarliest')['TerminalID'].count()
     projects_df_years_sum['Operating terminal capacity'] += terms_df_region.loc[terms_df_region.Status=='Operating'].groupby('StartYearEarliest')['CapacityInBcm/y'].count()
 
-    #projects_df_cancelled_sum.replace(numpy.nan,0,inplace=True)
+    # Pipelines
+    projects_df_years_sum['Shelved pipelines'] += country_ratios_df_region.loc[country_ratios_df_region.Status=='Shelved'].groupby('ShelvedYear')['LengthPerCountryFraction'].sum()
+    projects_df_years_sum['Shelved pipeline km'] += country_ratios_df_region.loc[country_ratios_df_region.Status=='Shelved'].groupby('ShelvedYear')['MergedKmByCountry'].sum()
+    # Terminals
+    projects_df_years_sum['Shelved terminals'] += terms_df_region.loc[terms_df_region.Status=='Shelved'].groupby('ShelvedYear')['TerminalID'].count()
+    projects_df_years_sum['Shelved terminal capacity'] += terms_df_region.loc[terms_df_region.Status=='Shelved'].groupby('ShelvedYear')['CapacityInBcm/y'].count()
 
-    # reorder for descending values
-    #country_order = projects_df_fid_sum.sum(axis=1).sort_values(ascending=True).index
-    #projects_df_fid_sum = projects_df_fid_sum.reindex(country_order)
+    # Pipelines
+    projects_df_years_sum['Proposed pipelines'] += country_ratios_df_region.loc[country_ratios_df_region.Status=='Proposed'].groupby('ProposalYear')['LengthPerCountryFraction'].sum()
+    projects_df_years_sum['Proposed pipeline km'] += country_ratios_df_region.loc[country_ratios_df_region.Status=='Proposed'].groupby('ProposalYear')['MergedKmByCountry'].sum()
+    # Terminals
+    projects_df_years_sum['Proposed terminals'] += terms_df_region.loc[terms_df_region.Status=='Proposed'].groupby('ProposalYear')['TerminalID'].count()
+    projects_df_years_sum['Proposed terminal capacity'] += terms_df_region.loc[terms_df_region.Status=='Proposed'].groupby('ProposalYear')['CapacityInBcm/y'].count()
+
+    # Pipelines
+    projects_df_years_sum['Construction pipelines'] += country_ratios_df_region.loc[country_ratios_df_region.Status=='Construction'].groupby('ConstructionYear')['LengthPerCountryFraction'].sum()
+    projects_df_years_sum['Construction pipeline km'] += country_ratios_df_region.loc[country_ratios_df_region.Status=='Construction'].groupby('ConstructionYear')['MergedKmByCountry'].sum()
+    # Terminals
+    projects_df_years_sum['Construction terminals'] += terms_df_region.loc[terms_df_region.Status=='Construction'].groupby('ConstructionYear')['TerminalID'].count()
+    projects_df_years_sum['Construction terminal capacity'] += terms_df_region.loc[terms_df_region.Status=='Construction'].groupby('ConstructionYear')['CapacityInBcm/y'].count()
 
     # ****************************************
 
-    colorscale_touse = 'reds'
-    bar_pipes_cancelled = px.colors.sample_colorscale(colorscale_touse, 0.7)
-    bar_terms_cancelled = px.colors.sample_colorscale(colorscale_touse, 0.4)
     colorscale_touse = 'greys'
-    bar_pipes_operating = px.colors.sample_colorscale(colorscale_touse, 0.7)
-    bar_terms_operating = px.colors.sample_colorscale(colorscale_touse, 0.4)
+    bar_pipes_cancelled = px.colors.sample_colorscale(colorscale_touse, 0.9)
+    bar_terms_cancelled = px.colors.sample_colorscale(colorscale_touse, 0.7)
+    colorscale_touse = 'greys'
+    bar_pipes_shelved = px.colors.sample_colorscale(colorscale_touse, 0.5)
+    bar_terms_shelved = px.colors.sample_colorscale(colorscale_touse, 0.3)
+    colorscale_touse = 'oranges'
+    bar_pipes_operating = px.colors.sample_colorscale(colorscale_touse, 0.9)
+    bar_terms_operating = px.colors.sample_colorscale(colorscale_touse, 0.7)
+    colorscale_touse = 'blues'
+    bar_pipes_proposed = px.colors.sample_colorscale(colorscale_touse, 0.9)
+    bar_terms_proposed = px.colors.sample_colorscale(colorscale_touse, 0.7)
+    colorscale_touse = 'purples'
+    bar_pipes_construction = px.colors.sample_colorscale(colorscale_touse, 0.9)
+    bar_terms_construction = px.colors.sample_colorscale(colorscale_touse, 0.7)
 
     fig = px.bar(projects_df_years_sum[['Cancelled pipelines',
                                         'Cancelled terminals',
+                                        'Shelved pipelines',
+                                        'Shelved terminals',
                                         'Operating pipelines',
-                                        'Operating terminals']], 
-                 color_discrete_sequence=bar_pipes_cancelled+bar_terms_cancelled+bar_pipes_operating+bar_terms_operating, 
+                                        'Operating terminals',
+                                        'Construction pipelines',
+                                        'Construction terminals',
+                                        'Proposed pipelines',
+                                        'Proposed terminals']], 
+                 color_discrete_sequence=bar_pipes_cancelled+bar_terms_cancelled+bar_pipes_shelved+bar_terms_shelved+\
+                                            bar_pipes_operating+bar_terms_operating+bar_pipes_proposed+bar_terms_proposed+\
+                                            bar_pipes_construction+bar_terms_construction, 
                  height=800,
-                 title='Number of projects cancelled or operating')
+                 title='Number of projects by status and year')
 
     note = '<i>Note when a pipeline passes through multiple countries, it is divided into fractions that sum to 1.</i>'
     fig.add_annotation(x=0, y=-0.1,
@@ -527,7 +577,7 @@ def fig_year_counts():
                        text=note,
                        showarrow=False,
                        font=dict(size=12))
-    
+
     fig.update_layout(
         font_family='Helvetica',
         font_color=px.colors.sample_colorscale('greys', 0.5)[0],
@@ -540,10 +590,10 @@ def fig_year_counts():
         xaxis={'mirror':'allticks','side':'top'},
         title_y=.97,
         title_yanchor='top',
-        xaxis_range=[2011.5,2021.5],
+        xaxis_range=[2011.5,2023.5],
+        title={'x':0.5, 'xanchor': 'center'},
 
         legend_title='Click to toggle on/off',
-        #legend=dict(yanchor="bottom",y=0.01,xanchor="right",x=0.99,bgcolor='rgba(0,0,0,0)'),
         legend=dict(yanchor="top",y=1,xanchor="left",x=1.01,bgcolor='rgba(0,0,0,0)'),
     )
 
@@ -554,15 +604,15 @@ def fig_year_counts():
     fig.update_xaxes(
         gridcolor=px.colors.sample_colorscale('greys', 0.25)[0]
     )
-
     return(fig, projects_df_years_sum)
+
 
 def fig_capacity_map():
 
     terms_df_capacity_sum = pandas.DataFrame(0, index=country_list, columns=['Pre-construction','Construction'])
     terms_df_region = terms_df_orig[(terms_df_orig.Country.isin(region_df_touse.Country))&
                                     (terms_df_orig.Status.isin(['Construction','Proposed']))&
-                                    (terms_df_orig.Facility.isin(['Import']))]
+                                    (terms_df_orig['Import/Export'].isin(['Import']))]
 
     # proposed
     terms_df_capacity_sum['Pre-construction'] += terms_df_region.loc[terms_df_region.Status=='Proposed'].groupby(
@@ -579,7 +629,7 @@ def fig_capacity_map():
     # add ISO Code for interaction with nat earth data
     terms_df_capacity_sum['ISOCode'] = ''
     for idx,row in terms_df_capacity_sum.iterrows():
-        terms_df_capacity_sum.loc[idx,'ISOCode'] = region_df_orig.loc[region_df_orig['Country']==row.name,'ISOCode'].values
+        terms_df_capacity_sum.loc[idx,'ISOCode'] = region_df_orig.loc[region_df_orig['Country']==row.name,'ISOCode'].values[0]
 
     # reorder for descending values
     country_order = terms_df_capacity_sum.sum(axis=1).sort_values(ascending=True).index
@@ -590,7 +640,7 @@ def fig_capacity_map():
                         color='Capacity (bcm/y)', color_continuous_scale=px.colors.sequential.Oranges)#,
                         #title='Capacity of planned LNG terminals')
     
-    note = 'Capacity totals mapped'
+    note = 'Capacity of planned LNG terminals (mapped)'
     fig.add_annotation(x=0.5, y=1.1,
                        xref='x domain',
                        yref='y domain',
@@ -639,7 +689,6 @@ def fig_capacity_map():
 
 def fig_kilometers_map():
 
-
     pipes_df_length_sum = pandas.DataFrame(0, index=country_list, columns=['Pre-construction','Construction'])
     country_ratios_df_region = country_ratios_df[(country_ratios_df.Country.isin(region_df_touse.Country))&
                                                  (country_ratios_df.Status.isin(['Construction','Proposed']))]
@@ -668,7 +717,7 @@ def fig_kilometers_map():
     # add ISO Code for interaction with nat earth data
     pipes_df_length_sum['ISOCode'] = ''
     for idx,row in  pipes_df_length_sum.iterrows():
-         pipes_df_length_sum.loc[idx,'ISOCode'] = region_df_orig.loc[region_df_orig['Country']==row.name,'ISOCode'].values
+         pipes_df_length_sum.loc[idx,'ISOCode'] = region_df_orig.loc[region_df_orig['Country']==row.name,'ISOCode'].values[0]
 
     # reorder for descending values
     country_order =  pipes_df_length_sum.sum(axis=1).sort_values(ascending=True).index
@@ -679,7 +728,7 @@ def fig_kilometers_map():
                         color='Pipelines (km)', color_continuous_scale=px.colors.sequential.Greens)#,
                         #title='Kilometers of planned gas pipelines')
 
-    note = 'Kilometer totals mapped'
+    note = 'Kilometers of planned gas pipelines (mapped)'
     fig.add_annotation(x=0.5, y=1.1,
                        xref='x domain',
                        yref='y domain',
@@ -724,7 +773,7 @@ def fig_kilometers_map():
     return(fig)
 
 # ****************************************
-# dashboard details
+# dashboard details with tab
 # ****************************************
 
 external_stylesheets = [dbc.themes.BOOTSTRAP]
@@ -760,43 +809,48 @@ map_kilometers_figure = dash.dcc.Graph(id='fig_kilometers_map_id',
 # ******************************
 # define layout
 
-# note the dash.html.Div([ up top is necessary for it to work...
-app.layout = dash.html.Div([
-    dbc.Container(fluid=True, children=[
+tab1_content = dbc.Container(fluid=True, children=[
     dbc.Row([
-        dbc.Col(capacity_figure, style={'maxHeight':'300px', 'overflow':'scroll'}, align='start'),
-        dbc.Col(length_figure, style={'maxHeight':'300px', 'overflow':'scroll'}, align='start')
-    ]),
+        dbc.Col(map_capacity_figure, style={'maxWidth': '800px'}, align='start'),
+    ], justify='center'),
     dbc.Row([
-        dbc.Col(map_capacity_figure, style={'maxHeight':'800px', 'overflow':'scroll'}, align='start'),
-        dbc.Col(map_kilometers_figure, style={'maxHeight':'800px', 'overflow':'scroll'}, align='start')
-    ]),
+        dbc.Col(capacity_figure, style={'maxWidth': '800px'}, align='start'),
+    ], justify='center'),
+])
+
+tab2_content = dbc.Container(fluid=True, children=[
+    dbc.Row([
+        dbc.Col(map_kilometers_figure, style={'maxWidth': '1200px'}, align='start'),
+    ], justify='center'),
+    dbc.Row([
+        dbc.Col(length_figure, style={'maxWidth': '800px'}, align='start'),
+    ], justify='center'),
+])
+
+tab3_content = dbc.Container(fluid=True, children=[
     dbc.Row([
         dbc.Col(fid_figure, style={'maxHeight':'800px', 'overflow':'scroll'}, align='start'),
         dbc.Col(year_counts_figure, style={'maxHeight':'800px', 'overflow':'scroll'}, align='start')
     ]),
 ])
+
+tabs = dbc.Tabs(
+    [
+        dbc.Tab(tab1_content, label="LNG terminals",
+                label_style={"color": "#002b36"},
+                active_label_style={"color": "#839496"}),
+        dbc.Tab(tab2_content, label="Methane gas pipelines",
+                label_style={"color": "#002b36"},
+                active_label_style={"color": "#839496"}),
+        dbc.Tab(tab3_content, label="FID and status changes",
+                label_style={"color": "#002b36"},
+                active_label_style={"color": "#839496"}),
+    ]
+)
+
+app.layout = dash.html.Div([
+    tabs
 ])
-
-# style={'maxHeight':'400px', 'overflow':'scroll'} - add before align='start'
-
-#app.run_server(mode='external')
-#app.run_server(mode='inline')
-
-#@app.callback(
-#    dash.dependencies.Output('figure_capacity', 'figure'),
-#    dash.dependencies.Output('figure_length', 'figure'),
-#    dash.dependencies.Output('figure_fid', 'figure'))
 
 if __name__ == '__main__':
     app.run_server()
-
-# terms_df_capacity_sum = fig_capacity()[1]
-# pipes_df_length_sum = fig_length()[1]
-# projects_df_fid_sum = fig_fid()[1]
-#projects_df_years_sum = fig_year_counts()[1]
-
-# terms_df_capacity_sum.to_excel('terminals_capacity_data.xlsx')
-# pipes_df_length_sum.to_excel('pipelines_length_data.xlsx')
-# projects_df_fid_sum.to_excel('projects_at_fid_and_prefid.xlsx')
-#projects_df_years_sum.to_excel('project_counts_by_status_and_year.xlsx')
