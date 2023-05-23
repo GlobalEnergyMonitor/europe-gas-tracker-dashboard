@@ -30,6 +30,16 @@ pipes_df_orig = pipes_df_orig[pipes_df_orig['PipelineName']!='']
 #get other relevant sheets
 country_ratios_df = spreadsheet.worksheet('title', 'Country ratios by pipeline').get_as_df()
 
+# get regional info
+region_df_orig = spreadsheet.worksheet('title', 'Region dictionary').get_as_df(start='A2')
+
+region_df_eu = region_df_orig.copy()[region_df_orig['EuropeanUnion']=='Yes']
+region_df_egt = region_df_orig.copy()[region_df_orig['EuroGasTracker']=='Yes']
+region_df_europe = region_df_orig.copy()[region_df_orig['Region']=='Europe']
+region_df_touse = region_df_eu.copy()
+
+country_list = region_df_touse.Country
+
 # ****************************************
 # special cases
 # ****************************************
@@ -188,16 +198,6 @@ terms_df_orig = terms_df_orig.loc[terms_df_orig['Fuel']=='LNG']
 # remove anything without a wiki page
 terms_df_orig = terms_df_orig.loc[terms_df_orig['Wiki']!='']
 # remove anything without latlon coords
-
-
-region_df_orig = spreadsheet.worksheet('title', 'Region dictionary').get_as_df(start='A2')
-
-region_df_eu = region_df_orig.copy()[region_df_orig['EuropeanUnion']=='Yes']
-region_df_egt = region_df_orig.copy()[region_df_orig['EuroGasTracker']=='Yes']
-region_df_europe = region_df_orig.copy()[region_df_orig['Region']=='Europe']
-region_df_touse = region_df_eu.copy()
-
-country_list = region_df_touse.Country
 
 # ****************************************
 # convert lat/lon geometry objects
@@ -753,7 +753,9 @@ def fig_kilometers_map():
     fig.update_coloraxes(
         colorbar=dict(thickness=15, title={'side':'right'}))
     fig.update_traces(
-        selector=dict(type='choropleth'))
+        selector=dict(type='choropleth'),
+        hovertemplate='{Country}<br>{Capacity (bcm/y)} bcm/y'
+    )
     
     return(fig)
 
