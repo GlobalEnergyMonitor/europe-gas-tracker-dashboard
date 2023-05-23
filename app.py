@@ -1,188 +1,3 @@
-import pandas
-import numpy
-import pygsheets
-import geopandas
-import shapely
-
-import dash
-import plotly.express as px
-#import jupyter_dash
-import dash_bootstrap_components as dbc
-
-# ****************************************
-# import pipelines data
-# ****************************************
-
-gc = pygsheets.authorize(service_account_env_var='GDRIVE_API_CREDENTIALS')
-
-#spreadsheet = gc.open_by_key('1MX_6I2QW07lFFWMO-k3mjthBlQGFlv5aTMBmvbliYUY') # current version
-spreadsheet = gc.open_by_key('1PKsCoVnfnCEalDBOF0Fmny0-pg1qy86DoReNHI-97WM') # Mar 2023 release
-
-gas_pipes = spreadsheet.worksheet('title', 'Gas pipelines').get_as_df(start='A2')
-oil_pipes = spreadsheet.worksheet('title', 'Oil/NGL pipelines').get_as_df(start='A2')
-
-gas_pipes = gas_pipes.drop('WKTFormat', axis=1) # delete WKTFormat column
-oil_pipes = oil_pipes.drop('WKTFormat', axis=1)
-pipes_df_orig = gas_pipes.copy()#pandas.concat([oil_pipes, gas_pipes], ignore_index=True)
-# remove empty cells for pipes, owners
-pipes_df_orig = pipes_df_orig[pipes_df_orig['PipelineName']!='']
-
-#get other relevant sheets
-country_ratios_df = spreadsheet.worksheet('title', 'Country ratios by pipeline').get_as_df()
-
-# get regional info
-region_df_orig = spreadsheet.worksheet('title', 'Region dictionary').get_as_df(start='A2')
-
-region_df_eu = region_df_orig.copy()[region_df_orig['EuropeanUnion']=='Yes']
-region_df_egt = region_df_orig.copy()[region_df_orig['EuroGasTracker']=='Yes']
-region_df_europe = region_df_orig.copy()[region_df_orig['Region']=='Europe']
-region_df_touse = region_df_eu.copy()
-
-country_list = region_df_touse.Country
-
-# ****************************************
-# special cases
-# ****************************************
-# as of Feb 22, Nord Stream 2 is "Idle" in our data but should probably be "Construction"...
-
-# force Nigeria-Morocco Pipeline to be Proposed (instead of Construction)
-country_ratios_df.loc[country_ratios_df.PipelineName=='Nord Stream 2', 'Status'] = 'Construction'
-pipes_df_orig.loc[pipes_df_orig.PipelineName=='Nord Stream 2', 'Status'] = 'Construction'
-
-country_ratios_df.replace('--', numpy.nan, inplace=True)
-country_ratios_df[['CancelledYear','ShelvedYear']].replace('',numpy.nan,inplace=True)
-pipes_df_orig.replace('--', numpy.nan, inplace=True)
-
-# https://www.gem.wiki/Poland-Ukraine_Interconnector_Gas_Pipeline
-# our country_ratios code calculates this is half in each country, but it's not
-country_ratios_df.loc[(country_ratios_df.PipelineName=='Poland-Ukraine Interconnector Gas Pipeline')& \
-    (country_ratios_df.Country=='Poland'),'LengthKnownKmByCountry'] = 1.5
-
-country_ratios_df.loc[(country_ratios_df.PipelineName=='Poland-Ukraine Interconnector Gas Pipeline')& \
-    (country_ratios_df.Country=='Ukraine'),'LengthKnownKmByCountry'] = 99.0
-
-# ****************************************
-# convert routes to geometry objects
-# ****************************************
-
-def convert_gfit_to_linestring(coord_str, pipeline_name):
-    '''
-    Takes string from GFIT column of coordinates for a single pipeline,
-    converts that string into Shapely LineString or MultiLinestring.
-    '''
-    #print(coord_str, pipeline_name)
-    if ':' in coord_str and ';' not in coord_str:
-        # simple geometry; no branching
-        # create nested list of lists, separating on colons        
-        coord_list = coord_str.split(':')
-        coord_list_tuples = []
-        # non-branched pipeline (nested list with one level)
-        # convert nested list of lists to list of tuples
-        try:
-            for element in coord_list:
-                element_tuple = (float(element.split(',')[1]), 
-                                 float(element.split(',')[0]))
-                coord_list_tuples.append(element_tuple)
-        except:
-            print(f"Exception for {pipeline_name}; element: {element}") # for db
-        route_conv = shapely.geometry.LineString(coord_list_tuples)
-
-    elif ':' in coord_str and ';' in coord_str:
-        # create a nested list of lists, separating on semicolons
-        coord_list = coord_str.split(';')   
-        # create a second level of nesting, separating on colons
-        coord_list = [x.split(':') for x in coord_list]
-        # branched pipeline (nested list with two levels)
-        route_conv_list_all = []
-        
-        for nested_list in coord_list:
-            coord_list_tuples = []
-            # process element
-            try:
-                for element in nested_list:
-                    element_tuple = (float(element.split(',')[1]), 
-                                     float(element.split(',')[0]))
-                    coord_list_tuples.append(element_tuple)
-            except:
-                print(f"Exception for {pipeline_name}; element: {element}") # for db
-            # process coord_list_tuples
-            try:
-                route_conv_list = shapely.geometry.LineString(coord_list_tuples)
-                route_conv_list_all.append(route_conv_list)
-            except:
-                print(f"Exception for {pipeline_name}; coord_list_tuples: {coord_list_tuples}") # for db
-                pass
-            
-        route_conv = shapely.geometry.MultiLineString(route_conv_list_all)
-        
-    return route_conv
-
-def convert_all_pipelines(df):
-    """
-    Apply the conversion function to all pipelines in the dataframe.
-    """
-    # create geometry column with empty strings
-    #df.assign(ColName='geometry', dtype='str')
-    df['geometry'] = ''
-    #print(df['geometry'])
-    
-    # filter to keep only pipelines with routes
-    mask_route = df['Route'].str.contains(',' or ':')
-    pipes_with_route = df.loc[mask_route]
-    
-    for row in pipes_with_route.index:
-        route_str = df.at[row, 'Route']
-        pipeline_name = df.at[row, 'PipelineName']
-        
-        route_str_converted = convert_gfit_to_linestring(route_str, pipeline_name)
-    
-        #print(df.at[row,'ProjectID'])
-        #print(pipeline_name)
-        #print(route_str_converted)
-        
-        df.at[row, 'geometry'] = route_str_converted   
-        
-    return df
-
-
-# code to create a dataframe with WKT formatted geometry
-no_route_options = [
-    'Unavailable', 
-    'Capacity expansion only', 
-    'Bidirectionality upgrade only',
-    'Short route (< 100 km)', 
-    'N/A',
-    ''
-]
-
-# (1) copy, clean up
-to_convert_df = pipes_df_orig.copy()
-to_convert_df = to_convert_df[~to_convert_df['Route'].isin(no_route_options)]
-
-# also keep the non-converted ones separate
-not_converted_df = pipes_df_orig.copy()
-not_converted_df = not_converted_df[not_converted_df['Route'].isin(no_route_options)]
-# add a dummy column so that the dimensions match with converted wkt pipelines
-not_converted_df.assign(ColName='geometry')
-not_converted_df['geometry'] = [shapely.geometry.MultiLineString()]*not_converted_df.shape[0]
-not_converted_df.reset_index(drop=True)
-not_converted_gdf = geopandas.GeoDataFrame(not_converted_df, geometry=not_converted_df['geometry'])
-
-# (2) convert all pipelines
-pipes_df_wkt = convert_all_pipelines(to_convert_df)
-pipes_df_wkt = pipes_df_wkt.reset_index(drop=True)
-
-# (3) store in a GeoDataFrame, attach a projection, transform to a different one
-pipes_df_wkt_gdf = geopandas.GeoDataFrame(pipes_df_wkt, geometry=pipes_df_wkt['geometry'])
-pipes_df_wkt_gdf = pipes_df_wkt_gdf.set_crs('epsg:4326')
-pipes_df_wkt_gdf_4087 = pipes_df_wkt_gdf.to_crs('epsg:4087')
-
-pipes_df_converted_routes = pandas.concat([pipes_df_wkt_gdf, not_converted_gdf])
-pipes_df_converted_routes = pipes_df_converted_routes.reset_index(drop=True)
-pipes_df_converted_routes.sort_values('ProjectID', inplace=True)
-
-pipes_gdf = geopandas.GeoDataFrame(pipes_df_converted_routes, geometry=pipes_df_converted_routes['geometry'])
-
 # ****************************************
 # import terminals
 # ****************************************
@@ -619,7 +434,7 @@ def fig_capacity_map():
         terms_df_capacity_sum.loc[idx,'ISOCode'] = region_df_orig.loc[region_df_orig['Country']==row.name,'ISOCode'].values[0]
 
     # reorder for descending values
-    country_order = terms_df_capacity_sum.sum(axis=1).sort_values(ascending=True).index
+    country_order = terms_df_capacity_sum.sort_values(by='Capacity (bcm/y)', ascending=True).index #terms_df_capacity_sum.sum(axis=1).sort_values(ascending=True).index
     terms_df_capacity_sum = terms_df_capacity_sum.reindex(country_order)
 
     fig = px.choropleth(terms_df_capacity_sum, 
@@ -690,10 +505,8 @@ def fig_kilometers_map():
     pipes_df_length_sum.replace(numpy.nan,0,inplace=True)
 
     # reorder for descending values
-    country_order = pipes_df_length_sum.sum(axis=1).sort_values(ascending=True).index
-    pipes_df_length_sum = pipes_df_length_sum.reindex(country_order)
-    
-    # ****************************************
+    #country_order = pipes_df_length_sum.sum(axis=1).sort_values(ascending=True).index
+    #pipes_df_length_sum = pipes_df_length_sum.reindex(country_order)
 
     # create cloropleth info
     pipes_df_length_sum['Pipelines (km)'] = pipes_df_length_sum.sum(axis=1)
@@ -704,7 +517,7 @@ def fig_kilometers_map():
          pipes_df_length_sum.loc[idx,'ISOCode'] = region_df_orig.loc[region_df_orig['Country']==row.name,'ISOCode'].values[0]
 
     # reorder for descending values
-    country_order =  pipes_df_length_sum.sum(axis=1).sort_values(ascending=True).index
+    country_order =  pipes_df_length_sum.sort_values(by='Pipelines (km)', ascending=True).index #pipes_df_length_sum.sum(axis=1).sort_values(ascending=True).index
     pipes_df_length_sum = pipes_df_length_sum.reindex(country_order)
 
     fig = px.choropleth(pipes_df_length_sum, 
