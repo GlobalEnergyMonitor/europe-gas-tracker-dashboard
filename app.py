@@ -750,10 +750,10 @@ def fig_kilometers_map():
     
     fig.update_coloraxes(
         colorbar=dict(thickness=15, title={'side':'right'}))
-    fig.update_traces(
-        selector=dict(type='choropleth'),
-        hovertemplate='{Country}<br>{Capacity (bcm/y)} bcm/y'
-    )
+    #fig.update_traces(
+    #    selector=dict(type='choropleth'),
+    #    hovertemplate='{Country}<br>{Capacity (bcm/y)} bcm/y'
+    #)
     
     return(fig)
 
