@@ -1,6 +1,6 @@
+import os
 import pandas
 import numpy
-import pygsheets
 import geopandas
 import shapely
 
@@ -13,24 +13,48 @@ import dash_bootstrap_components as dbc
 # import pipelines data
 # ****************************************
 
-gc = pygsheets.authorize(service_account_env_var='GDRIVE_API_CREDENTIALS')
+# DEV MODE: load from local Excel files when GDRIVE_API_CREDENTIALS is not set
+_LOCAL_PIPELINES_XLSX = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'gem',
+    'Copy of Pipelines (Gas_Oil_NGL) - main - for Q1 2025 EGT release.xlsx')
+_LOCAL_TERMINALS_XLSX = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'gem',
+    'Copy of LNG Terminals - main - for 2025 Q1 EGT release.xlsx')
 
-#spreadsheet = gc.open_by_key('1MX_6I2QW07lFFWMO-k3mjthBlQGFlv5aTMBmvbliYUY') # current version
-#spreadsheet = gc.open_by_key('1PKsCoVnfnCEalDBOF0Fmny0-pg1qy86DoReNHI-97WM') # Mar 2023 release
-spreadsheet = gc.open_by_key('1CktxlI1RgYUvKtL0iaNjnZszXFVjSj0JKgPnxkbm414') # Jan 2025 release
+if os.environ.get('GDRIVE_API_CREDENTIALS'):
+    import pygsheets
+    gc = pygsheets.authorize(service_account_env_var='GDRIVE_API_CREDENTIALS')
 
-gas_pipes = spreadsheet.worksheet('title', 'Gas pipelines').get_as_df(start='A3')
-oil_pipes = spreadsheet.worksheet('title', 'Oil/NGL pipelines').get_as_df(start='A3')
+    #spreadsheet = gc.open_by_key('1MX_6I2QW07lFFWMO-k3mjthBlQGFlv5aTMBmvbliYUY') # current version
+    #spreadsheet = gc.open_by_key('1PKsCoVnfnCEalDBOF0Fmny0-pg1qy86DoReNHI-97WM') # Mar 2023 release
+    spreadsheet = gc.open_by_key('1CktxlI1RgYUvKtL0iaNjnZszXFVjSj0JKgPnxkbm414') # Jan 2025 release
+
+    gas_pipes = spreadsheet.worksheet('title', 'Gas pipelines').get_as_df(start='A3')
+    oil_pipes = spreadsheet.worksheet('title', 'Oil/NGL pipelines').get_as_df(start='A3')
+    country_ratios_df = spreadsheet.worksheet('title', 'Country ratios by pipeline').get_as_df()
+    region_df_orig = spreadsheet.worksheet('title', 'Country dictionary').get_as_df(start='A2')
+
+    spreadsheet = gc.open_by_key('1fziNYGHLG1uXozfNI6MGzwyUQt6R3-30PPfug6ZqcAk') # Jan 2025 release
+    terms_df_orig = spreadsheet.worksheet('title', 'Terminals').get_as_df(start='A3')
+else:
+    # DEV MODE: load from pre-converted CSVs (run convert_to_dev_csv.py to regenerate)
+    # Original xlsx paths kept for reference:
+    #   gas_pipes = pandas.read_excel(_LOCAL_PIPELINES_XLSX, sheet_name='Gas pipelines', header=2)
+    #   oil_pipes = pandas.read_excel(_LOCAL_PIPELINES_XLSX, sheet_name='OilNGL pipelines', header=2)
+    #   country_ratios_df = pandas.read_excel(_LOCAL_PIPELINES_XLSX, sheet_name='Country ratios by pipeline')
+    #   region_df_orig = pandas.read_excel(_LOCAL_PIPELINES_XLSX, sheet_name='Country dictionary', header=1)
+    #   terms_df_orig = pandas.read_excel(_LOCAL_TERMINALS_XLSX, sheet_name='Terminals', header=2)
+    _DEV_DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dev_data')
+    print('[DEV MODE] Loading data from CSVs in', _DEV_DATA)
+    gas_pipes = pandas.read_csv(os.path.join(_DEV_DATA, 'gas_pipelines.csv')).fillna('')
+    country_ratios_df = pandas.read_csv(os.path.join(_DEV_DATA, 'country_ratios.csv'))
+    region_df_orig = pandas.read_csv(os.path.join(_DEV_DATA, 'country_dictionary.csv')).fillna('')
+    terms_df_orig = pandas.read_csv(os.path.join(_DEV_DATA, 'terminals.csv'))
+    # Restore empty strings for text columns so existing filters (e.g. !='') work
+    for _col in ['Country','Status','FacilityType','TerminalID','FIDStatus','Fuel','Wiki']:
+        terms_df_orig[_col] = terms_df_orig[_col].fillna('')
 
 pipes_df_orig = gas_pipes.copy()#pandas.concat([oil_pipes, gas_pipes], ignore_index=True)
 # remove empty cells for pipes, owners
 pipes_df_orig = pipes_df_orig[pipes_df_orig['PipelineName']!='']
-
-#get other relevant sheets
-country_ratios_df = spreadsheet.worksheet('title', 'Country ratios by pipeline').get_as_df()
-
-# get regional info
-region_df_orig = spreadsheet.worksheet('title', 'Country dictionary').get_as_df(start='A2')
 
 region_df_eu = region_df_orig.copy()[region_df_orig['EuropeanUnion']=='Yes']
 region_df_egt = region_df_orig.copy()[region_df_orig['EuroGasTracker']=='Yes']
@@ -38,14 +62,6 @@ region_df_europe = region_df_orig.copy()[region_df_orig['Region']=='Europe']
 region_df_touse = region_df_eu.copy()
 
 country_list = region_df_touse.Country
-
-# ****************************************
-# import terminals
-# ****************************************
-
-spreadsheet = gc.open_by_key('1fziNYGHLG1uXozfNI6MGzwyUQt6R3-30PPfug6ZqcAk') # Jan 2025 release
-
-terms_df_orig = spreadsheet.worksheet('title', 'Terminals').get_as_df(start='A3')
 
 # replace all -- with nans
 terms_df_orig.replace('--', numpy.nan, inplace=True)
@@ -83,21 +99,20 @@ def fig_capacity():
 
     # ****************************************
 
-    colorscale_touse = 'ylorbr'
-
-    bar_dark = px.colors.sample_colorscale(colorscale_touse, 0.9)
-    bar_light = px.colors.sample_colorscale(colorscale_touse, 0.6)
+    # GEM 2026 palette: fossil reds for terminals
+    bar_dark = ['#7F142A']   # Construction (deeper = more advanced)
+    bar_light = ['#CA4A50']  # Pre-construction
 
     nbars = terms_df_capacity_sum.index.size
 
-    fig = px.bar(terms_df_capacity_sum[['Construction','Pre-construction']], 
-                 color_discrete_sequence=bar_dark+bar_light, 
+    fig = px.bar(terms_df_capacity_sum[['Construction','Pre-construction']],
+                 color_discrete_sequence=bar_dark+bar_light,
                  orientation='h',
                  title='Capacity of planned LNG terminals')
 
     fig.update_layout(
-        font_family='Helvetica',
-        font_color=px.colors.sample_colorscale('greys', 0.5)[0],
+        font_family='Plus Jakarta Sans',
+        font_color='#3A4A50',
         bargap=0.25,
         plot_bgcolor='white',
         paper_bgcolor='white',
@@ -110,8 +125,8 @@ def fig_capacity():
         title={'x':0.5, 'xanchor': 'center'},
 
         legend_title='Click to toggle on/off',
-        legend=dict(yanchor="bottom",y=.01,xanchor="right",x=.95),#,bgcolor='rgba(0,0,0,0)'),
-    
+        legend=dict(yanchor="bottom",y=.01,xanchor="right",x=.95),
+
         margin=dict(l=0, r=0),
     )
 
@@ -120,7 +135,7 @@ def fig_capacity():
     )
 
     fig.update_xaxes(
-        gridcolor=px.colors.sample_colorscale('greys', 0.25)[0]
+        gridcolor='#dce3e5'
     )
     
     return(fig, terms_df_capacity_sum)
@@ -150,22 +165,21 @@ def fig_length():
     
     # ****************************************
 
-    colorscale_touse = 'greens'
-
-    bar_dark = px.colors.sample_colorscale(colorscale_touse, 0.9)
-    bar_light = px.colors.sample_colorscale(colorscale_touse, 0.6)
+    # GEM 2026 palette: indigo/purple for pipelines
+    bar_dark = ['#4A57A8']   # Construction (deeper = more advanced)
+    bar_light = ['#9d88dd']  # Pre-construction
 
     nbars = pipes_df_length_sum.index.size
 
-    fig = px.bar(pipes_df_length_sum[['Construction','Pre-construction']], 
-                 color_discrete_sequence=bar_dark+bar_light, 
+    fig = px.bar(pipes_df_length_sum[['Construction','Pre-construction']],
+                 color_discrete_sequence=bar_dark+bar_light,
                  orientation='h',
                  title='Km of planned gas pipelines')
 
     fig.update_layout(
-        font_family='Helvetica',
-        font_color=px.colors.sample_colorscale('greys', 0.5)[0],
-        bargap=0.25, 
+        font_family='Plus Jakarta Sans',
+        font_color='#3A4A50',
+        bargap=0.25,
         plot_bgcolor='white',
         paper_bgcolor='white',
 
@@ -177,8 +191,8 @@ def fig_length():
         title={'x':0.5, 'xanchor': 'center'},
 
         legend_title='Click to toggle on/off',
-        legend=dict(yanchor="bottom",y=.01,xanchor="right",x=.95),#,bgcolor='rgba(0,0,0,0)'),
-    
+        legend=dict(yanchor="bottom",y=.01,xanchor="right",x=.95),
+
         margin=dict(l=0, r=0),
     )
 
@@ -187,7 +201,7 @@ def fig_length():
     )
 
     fig.update_xaxes(
-        gridcolor=px.colors.sample_colorscale('greys', 0.25)[0]
+        gridcolor='#dce3e5'
     )
     
     return(fig, pipes_df_length_sum)
@@ -217,18 +231,17 @@ def fig_fid():
 
     # ****************************************
 
-    colorscale_touse = 'blues'
-    bar_pipes_dark = px.colors.sample_colorscale(colorscale_touse, 0.9)
-    bar_pipes_light = px.colors.sample_colorscale(colorscale_touse, 0.6)
-    colorscale_touse = 'purples'
-    bar_terms_dark = px.colors.sample_colorscale(colorscale_touse, 0.9)
-    bar_terms_light = px.colors.sample_colorscale(colorscale_touse, 0.6)
+    # GEM 2026 palette: indigo for pipelines, fossil red for terminals
+    bar_pipes_dark = ['#4A57A8']   # Pipelines FID
+    bar_pipes_light = ['#9d88dd']  # Pipelines pre-FID
+    bar_terms_dark = ['#7F142A']   # Terminals FID
+    bar_terms_light = ['#CA4A50']  # Terminals pre-FID
 
     nbars = projects_df_fid_sum.index.size
 
     fig = px.bar(projects_df_fid_sum[['Pipelines FID','Pipelines pre-FID',
-                                      'Terminals FID', 'Terminals pre-FID']], 
-                 color_discrete_sequence=bar_pipes_dark+bar_pipes_light+bar_terms_dark+bar_terms_light, 
+                                      'Terminals FID', 'Terminals pre-FID']],
+                 color_discrete_sequence=bar_pipes_dark+bar_pipes_light+bar_terms_dark+bar_terms_light,
                  orientation='h',
                  title='Number of projects at FID or pre-FID')
 
@@ -239,10 +252,10 @@ def fig_fid():
                        text=note,
                        showarrow=False,
                        font=dict(size=12))
-    
+
     fig.update_layout(
-        font_family='Helvetica',
-        font_color=px.colors.sample_colorscale('greys', 0.5)[0],
+        font_family='Plus Jakarta Sans',
+        font_color='#3A4A50',
         bargap=0.25,
         plot_bgcolor='white',
         paper_bgcolor='white',
@@ -255,9 +268,8 @@ def fig_fid():
         title={'x':0.5, 'xanchor': 'center'},
 
         legend_title='Click to toggle on/off',
-        #legend=dict(yanchor="bottom",y=0.01,xanchor="right",x=0.99,bgcolor='rgba(0,0,0,0)'),
-        legend=dict(yanchor="bottom",y=0.01,xanchor="right",x=.95),#,bgcolor='rgba(0,0,0,0)'),
-    
+        legend=dict(yanchor="bottom",y=0.01,xanchor="right",x=.95),
+
         margin=dict(l=0, r=0),
     )
 
@@ -266,7 +278,7 @@ def fig_fid():
     )
 
     fig.update_xaxes(
-        gridcolor=px.colors.sample_colorscale('greys', 0.25)[0]
+        gridcolor='#dce3e5'
     )
 
     return(fig, projects_df_fid_sum)
@@ -337,21 +349,17 @@ def fig_year_counts():
 
     # ****************************************
 
-    colorscale_touse = 'greys'
-    bar_pipes_cancelled = px.colors.sample_colorscale(colorscale_touse, 0.9)
-    bar_terms_cancelled = px.colors.sample_colorscale(colorscale_touse, 0.7)
-    colorscale_touse = 'greys'
-    bar_pipes_shelved = px.colors.sample_colorscale(colorscale_touse, 0.5)
-    bar_terms_shelved = px.colors.sample_colorscale(colorscale_touse, 0.3)
-    colorscale_touse = 'oranges'
-    bar_pipes_operating = px.colors.sample_colorscale(colorscale_touse, 0.9)
-    bar_terms_operating = px.colors.sample_colorscale(colorscale_touse, 0.7)
-    colorscale_touse = 'blues'
-    bar_pipes_proposed = px.colors.sample_colorscale(colorscale_touse, 0.9)
-    bar_terms_proposed = px.colors.sample_colorscale(colorscale_touse, 0.7)
-    colorscale_touse = 'purples'
-    bar_pipes_construction = px.colors.sample_colorscale(colorscale_touse, 0.9)
-    bar_terms_construction = px.colors.sample_colorscale(colorscale_touse, 0.7)
+    # GEM 2026 palette: semantic status colors, darker=pipelines, lighter=terminals
+    bar_pipes_cancelled = ['#6e8c91']     # Cancelled (retired grey, darker)
+    bar_terms_cancelled = ['#dce3e5']     # Cancelled (cancelled grey, lighter)
+    bar_pipes_shelved = ['#BECCCF']       # Shelved (medium grey)
+    bar_terms_shelved = ['#dce3e5']       # Shelved (light grey)
+    bar_pipes_operating = ['#FE4F2D']     # Operating (orange pop, pipelines)
+    bar_terms_operating = ['#FF6A4D']     # Operating (lighter orange, terminals)
+    bar_pipes_proposed = ['#099ED8']      # Proposed (blue, pipelines)
+    bar_terms_proposed = ['#8CD3EF']      # Proposed (light blue, terminals)
+    bar_pipes_construction = ['#4A57A8']  # Construction (indigo, pipelines)
+    bar_terms_construction = ['#9d88dd']  # Construction (light purple, terminals)
 
     fig = px.bar(projects_df_years_sum[['Cancelled pipelines',
                                         'Cancelled terminals',
@@ -362,7 +370,7 @@ def fig_year_counts():
                                         'Construction pipelines',
                                         'Construction terminals',
                                         'Proposed pipelines',
-                                        'Proposed terminals']], 
+                                        'Proposed terminals']],
                  color_discrete_sequence=bar_pipes_cancelled+bar_terms_cancelled+bar_pipes_shelved+bar_terms_shelved+\
                                             bar_pipes_operating+bar_terms_operating+bar_pipes_proposed+bar_terms_proposed+\
                                             bar_pipes_construction+bar_terms_construction,
@@ -377,8 +385,8 @@ def fig_year_counts():
                        font=dict(size=12))
 
     fig.update_layout(
-        font_family='Helvetica',
-        font_color=px.colors.sample_colorscale('greys', 0.5)[0],
+        font_family='Plus Jakarta Sans',
+        font_color='#3A4A50',
         bargap=0.25,
         plot_bgcolor='white',
         paper_bgcolor='white',
@@ -393,17 +401,16 @@ def fig_year_counts():
         yaxis=dict(tickmode='linear',
                    tick0=0,
                    dtick=2,
-                   #ticklabelstep=5
                   ),
-        
+
         legend_title='Click to toggle on/off',
-        legend=dict(yanchor="top",y=.99,xanchor="left",x=.05),#,bgcolor='rgba(0,0,0,0)'),
-    
+        legend=dict(yanchor="top",y=.99,xanchor="left",x=.05),
+
         margin=dict(l=0, r=0),
     )
 
     fig.update_xaxes(
-        gridcolor=px.colors.sample_colorscale('greys', 0.25)[0]
+        gridcolor='#dce3e5'
     )
     
     return(fig, projects_df_years_sum)
@@ -436,10 +443,12 @@ def fig_capacity_map():
     country_order = terms_df_capacity_sum.sort_values(by='Capacity (bcm/y)', ascending=True).index #terms_df_capacity_sum.sum(axis=1).sort_values(ascending=True).index
     terms_df_capacity_sum = terms_df_capacity_sum.reindex(country_order)
 
-    fig = px.choropleth(terms_df_capacity_sum, 
+    # GEM 2026 palette: fossil red sequential for terminal choropleth
+    fig = px.choropleth(terms_df_capacity_sum,
                         locations=terms_df_capacity_sum['ISOCode'],
-                        color='Capacity (bcm/y)', color_continuous_scale=px.colors.sequential.Oranges)
-    
+                        color='Capacity (bcm/y)',
+                        color_continuous_scale=['#f6c9c6', '#CA4A50', '#7F142A'])
+
     note = 'Capacity of planned LNG terminals'
     fig.add_annotation(x=0.5, y=1.1,
                        xref='x domain',
@@ -461,19 +470,18 @@ def fig_capacity_map():
         center=dict(lat=50, lon=7),
         projection_rotation=dict(lon=30),
         projection_scale=5.5)
-    
+
     fig.update_layout(
-        font_family='Helvetica',
-        font_color=px.colors.sample_colorscale('greys', 0.5)[0],
+        font_family='Plus Jakarta Sans',
+        font_color='#3A4A50',
         plot_bgcolor='white',
         paper_bgcolor='white',
 
         yaxis_title='',
         xaxis_title='bcm/y',
-        #title_y=.97,
         title_yanchor='top',
         dragmode=False,
-    
+
         margin=dict(l=0, r=0),)
 
         #coloraxis_colorbar_x=1.01)
@@ -519,10 +527,11 @@ def fig_kilometers_map():
     country_order =  pipes_df_length_sum.sort_values(by='Pipelines (km)', ascending=True).index #pipes_df_length_sum.sum(axis=1).sort_values(ascending=True).index
     pipes_df_length_sum = pipes_df_length_sum.reindex(country_order)
 
-    fig = px.choropleth(pipes_df_length_sum, 
+    # GEM 2026 palette: purple sequential for pipeline choropleth
+    fig = px.choropleth(pipes_df_length_sum,
                         locations=pipes_df_length_sum['ISOCode'],
-                        color='Pipelines (km)', color_continuous_scale=px.colors.sequential.Greens)#,
-                        #title='Kilometers of planned gas pipelines')
+                        color='Pipelines (km)',
+                        color_continuous_scale=['#cec3ee', '#6c51bd', '#412e7a'])
 
     note = 'Km of planned gas pipelines'
     fig.add_annotation(x=0.5, y=1.1,
@@ -532,7 +541,7 @@ def fig_kilometers_map():
                        showarrow=False,
                        align='center',
                        font=dict(size=16))
-    
+
     fig.update_geos(
         resolution=50,
         showcoastlines=False,
@@ -545,19 +554,18 @@ def fig_kilometers_map():
         center=dict(lat=50, lon=7),
         projection_rotation=dict(lon=30),
         projection_scale=5.5)
-    
+
     fig.update_layout(
-        font_family='Helvetica',
-        font_color=px.colors.sample_colorscale('greys', 0.5)[0],
+        font_family='Plus Jakarta Sans',
+        font_color='#3A4A50',
         plot_bgcolor='white',
         paper_bgcolor='white',
 
         yaxis_title='',
         xaxis_title='bcm/y',
-        #title_y=.97,
         title_yanchor='top',
         dragmode=False,
-    
+
         margin=dict(l=0, r=0),)
 
         #coloraxis_colorbar_x=1.01)
@@ -575,9 +583,10 @@ def fig_kilometers_map():
 # dashboard details with tab
 # ****************************************
 
-external_stylesheets = [dbc.themes.BOOTSTRAP,
-                        #'assets/typography.css'
-                       ]
+external_stylesheets = [
+    dbc.themes.BOOTSTRAP,
+    'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@400;500;600&display=swap',
+]
 app = dash.Dash(__name__, 
                 external_stylesheets=external_stylesheets,
                #meta_tags=[
@@ -679,14 +688,14 @@ tab3_content = dbc.Container(fluid=True,
 # put all the tabs together
 tabs = dbc.Tabs([
     dbc.Tab(tab1_content, label="LNG terminals",
-            label_style={"color": "#002b36"},
-            active_label_style={"color": "#839496"}),
+            label_style={"color": "#004A63", "fontFamily": "Plus Jakarta Sans"},
+            active_label_style={"color": "#FE4F2D"}),
     dbc.Tab(tab2_content, label="Methane gas pipelines",
-            label_style={"color": "#002b36"},
-            active_label_style={"color": "#839496"}),
+            label_style={"color": "#004A63", "fontFamily": "Plus Jakarta Sans"},
+            active_label_style={"color": "#FE4F2D"}),
     dbc.Tab(tab3_content, label="FID and status changes",
-            label_style={"color": "#002b36"},
-            active_label_style={"color": "#839496"}),
+            label_style={"color": "#004A63", "fontFamily": "Plus Jakarta Sans"},
+            active_label_style={"color": "#FE4F2D"}),
 ])
 
 # fluid=True means it will fill horiz space and resize
@@ -697,5 +706,5 @@ app.layout = dbc.Container([
     fluid=True)
 
 if __name__ == '__main__':
-    app.run_server()
+    app.run(debug=True)
 
